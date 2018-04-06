@@ -1,0 +1,148 @@
+﻿@page "/settings"
+@inject HttpClient Http
+@inject IUserService UserService
+@inject IUriHelper UriHelper
+<div class="settings-page">
+    <div class="container page">
+        <div class="row">
+
+            <div class="col-md-6 offset-md-3 col-xs-12">
+                <h1 class="text-xs-center">Your Settings</h1>
+
+                @if (HasApiErrors)
+                {
+                    <ul class="error-messages">
+                        @foreach (var errorMessage in Error.errors)
+                        {
+                            <li>@errorMessage.Key : @string.Join(",", errorMessage.Value)</li>
+                        }
+                    </ul>
+                }
+
+                @if (HasValidationErrors)
+                {
+                    <ul class="error-messages">
+                        @foreach (var errorMessage in LocalErrors)
+                        {
+                            <li>@errorMessage</li>
+                        }
+                    </ul>
+                }
+
+                <form>
+                    <fieldset>
+                        <fieldset class="form-group">
+                            <input class="form-control" type="text" placeholder="URL of profile picture" @bind(Image)>
+                        </fieldset>
+                        <fieldset class="form-group">
+                            <input class="form-control form-control-lg" type="text" placeholder="Your Name" @bind(Username)>
+                        </fieldset>
+                        <fieldset class="form-group">
+                            <textarea class="form-control form-control-lg" rows="8" placeholder="Short bio about you" @bind(Bio)></textarea>
+                        </fieldset>
+                        <fieldset class="form-group">
+                            <input class="form-control form-control-lg" type="text" placeholder="Email" @bind(Email)>
+                        </fieldset>
+                        <fieldset class="form-group">
+                            <input class="form-control form-control-lg" type="password" placeholder="Password" @bind(Password)>
+                        </fieldset>
+                        <button class="btn btn-lg btn-primary pull-xs-right" @onclick(async () => await UpdateUser())>
+                            Update Settings
+                        </button>
+                    </fieldset>
+                </form>
+                <hr />
+
+                <button class="btn btn-outline-danger" @onclick(Logout)>
+                    Or click here to logout.
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+@functions {
+
+    private string Image { get; set; }
+    private string Username { get; set; }
+    private string Bio { get; set; }
+    private string Email { get; set; }
+    private string Password { get; set; }
+
+    public Models.Error Error { get; set; }
+    public bool HasApiErrors => Error != null;
+
+    public string[] LocalErrors { get; set; }
+    public bool HasValidationErrors => LocalErrors != null && LocalErrors.Length > 0;
+
+    protected override void OnInit()
+    {
+        Console.WriteLine($"Settings page init {UserService.CurrentUser?.email}");
+
+        if (UserService.CurrentUser == null)
+            UriHelper.NavigateTo("/");
+        else
+        {
+            Image = UserService.CurrentUser.image;
+            Username = UserService.CurrentUser.username;
+            Bio = UserService.CurrentUser.bio;
+            Email = UserService.CurrentUser.email;
+        }
+    }
+
+
+    private async Task UpdateUser()
+    {
+        LocalErrors = FindValidationErrors().ToArray();
+        if (HasValidationErrors)
+            return;
+
+        try
+        {
+            await UserService.UpdateAsync(
+                image: Image,
+                username: Username,
+                bio: Bio,
+                email: Email,
+                password: Password
+                );
+
+            UriHelper.NavigateTo($"/");
+        }
+        catch (Services.ApiServiceException ex)
+        {
+            Error = ex.Error;
+            StateHasChanged();
+        }
+
+    }
+
+
+    private IEnumerable<string> FindValidationErrors()
+    {
+        if (string.IsNullOrWhiteSpace(Email))
+            Email = null;
+
+        if (Email != null  &&
+            (Email.IndexOf('.') == -1 ||
+            Email.Count(_ => _ == '@') != 1))
+            yield return "Please enter a valid email address";
+
+        if (string.IsNullOrWhiteSpace(Password))
+            Password = null;
+
+        if (Password != null &&
+            Password.Trim().Length < 8)
+            yield return "Please enter a password of at least 8 characters";
+
+        if (string.IsNullOrWhiteSpace(Username))
+            Username = null;
+    }
+
+    private void Logout()
+    {
+        UserService.Logout();
+        UriHelper.NavigateTo("/");
+    }
+}

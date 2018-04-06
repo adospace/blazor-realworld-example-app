@@ -1,0 +1,131 @@
+﻿@page "/new"
+@page "/edit/{ArticleSlug}"
+@inject HttpClient Http
+@inject IUserService UserService
+@inject IUriHelper UriHelper
+@inject IArticleService ArticleService
+
+<div class="editor-page">
+    <div class="container page">
+        <div class="row">
+            <div class="col-md-10 offset-md-1 col-xs-12">
+
+                @if (HasApiErrors)
+                {
+                    <ul class="error-messages">
+                        @foreach (var errorMessage in Error.errors)
+                        {
+                            <li>@errorMessage.Key : @string.Join(",", errorMessage.Value)</li>
+                        }
+                    </ul>
+                }
+
+                @if (HasValidationErrors)
+                {
+                    <ul class="error-messages">
+                        @foreach (var errorMessage in LocalErrors)
+                        {
+                            <li>@errorMessage</li>
+                        }
+                    </ul>
+                }
+
+                <form>
+                    <fieldset>
+                        <fieldset class="form-group">
+                            <input type="text" class="form-control form-control-lg" placeholder="Article Title" @bind(Title)>
+                        </fieldset>
+                        <fieldset class="form-group">
+                            <input type="text" class="form-control" placeholder="What's this article about?" @bind(Description)>
+                        </fieldset>
+                        <fieldset class="form-group">
+                            <textarea class="form-control" rows="8" placeholder="Write your article (in markdown)" @bind(Body)></textarea>
+                        </fieldset>
+                        @if (ArticleSlug == null)
+                        {
+                            <fieldset class="form-group">
+                                <input type="text" class="form-control" placeholder="Enter tags" @bind(TagList)><div class="tag-list"></div>
+                            </fieldset>
+                        }
+                        <button class="btn btn-lg pull-xs-right btn-primary" type="button" @onclick(async () => await PublishAsync())>
+                            Publish Article
+                        </button>
+                    </fieldset>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+@functions {
+
+    public string Title { get; set; }
+    public string Description { get; set; }
+    public string Body { get; set; }
+    public string TagList { get; set; }
+
+    public string ArticleSlug { get; set; }
+
+    public Models.Error Error { get; set; }
+    public bool HasApiErrors => Error != null;
+
+    public string[] LocalErrors { get; set; }
+    public bool HasValidationErrors => LocalErrors != null && LocalErrors.Length > 0;
+
+
+    protected override async Task OnInitAsync()
+    {
+        if (UserService.CurrentUser == null)
+            UriHelper.NavigateTo("/");
+        else
+            await LoadArticle();
+    }
+
+    private async Task LoadArticle()
+    {
+        if (string.IsNullOrWhiteSpace(ArticleSlug))
+            return;
+
+        Console.WriteLine($"Loading Article...{ArticleSlug}");
+        var article = (await ArticleService.GetAsync(ArticleSlug))?.article;
+
+        Title = article.title;
+        Description = article.description;
+        Body = article.body;
+        TagList = article.tagList != null ? string.Join(" ", article.tagList) : string.Empty;
+    }
+
+    private async Task PublishAsync()
+    {
+        LocalErrors = FindValidationErrors().ToArray();
+        if (HasValidationErrors)
+            return;
+
+        try
+        {
+            var article =
+                ArticleSlug != null ?
+                await ArticleService.UpdateAsync(ArticleSlug, title: Title, description: Description, body: Body) :
+                await ArticleService.CreateAsync(title: Title, description: Description, body: Body, tagList: TagList?.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries));
+
+            UriHelper.NavigateTo($"/article/{article.article.slug}");
+        }
+        catch (Services.ApiServiceException ex)
+        {
+            Error = ex.Error;
+            StateHasChanged();
+        }
+    }
+
+    private IEnumerable<string> FindValidationErrors()
+    {
+        if (string.IsNullOrWhiteSpace(Title))
+            yield return "Please enter a valid title";
+        if (string.IsNullOrWhiteSpace(Description))
+            yield return "Please enter a valid description";
+        if (string.IsNullOrWhiteSpace(Body))
+            yield return "Please enter an article";
+    }
+
+}

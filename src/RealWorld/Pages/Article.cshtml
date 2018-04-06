@@ -1,0 +1,204 @@
+﻿@page "/article/{ArticleSlug}"
+@inject HttpClient Http
+@inject IUserService UserService
+@inject IArticleService ArticleService
+@inject ICommentService CommentService
+
+<div class="article-page">
+
+    @if (SelectedArticle == null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+
+        <div class="banner">
+            <div class="container">
+
+                <h1>@SelectedArticle.title</h1>
+
+                <div class="article-meta">
+                    <a href=""><img src="http://i.imgur.com/Qr71crq.jpg" /></a>
+                    <div class="info">
+                        <a href="" class="author">@SelectedArticle.author.username</a>
+                        <span class="date">@SelectedArticle.updatedAt.ToLongDateString()</span>
+                    </div>
+
+                    @if (UserService.CurrentUser != null && SelectedArticle.author.username == UserService.CurrentUser.username)
+                    {
+                        <a class="btn btn-outline-secondary btn-sm" href="/edit/@SelectedArticle.slug">
+                            <i class="ion-edit"></i> Edit Article
+                        </a>
+
+                        <button class="btn btn-outline-danger btn-sm" @onclick(async () => await DeleteAsync())>
+                            <i class="ion-trash-a"></i> Delete Article
+                        </button>
+
+                    }
+                    else
+                    {
+                        <button class="btn btn-sm btn-outline-secondary">
+                            <i class="ion-plus-round"></i>
+                            &nbsp;
+                            Follow @SelectedArticle.author.username
+                        </button>
+
+                        <button class="btn btn-sm btn-outline-primary">
+                            <i class="ion-heart"></i>
+                            &nbsp;
+                            Favorite Post<span class="counter">(@SelectedArticle.favoritesCount)</span>
+                        </button>
+
+                    }
+
+
+                </div>
+            </div>
+        </div>
+
+        <div class="container page">
+
+            <div class="row article-content">
+                <div class="col-md-12">
+                    @SelectedArticle.body
+                </div>
+            </div>
+
+            <hr />
+
+            <div class="article-actions">
+                <div class="article-meta">
+                    <a href="profile.html"><img src="http://i.imgur.com/Qr71crq.jpg" /></a>
+                    <div class="info">
+                        <a href="" class="author">@SelectedArticle.author.username</a>
+                        <span class="date">@SelectedArticle.updatedAt.ToLongDateString()</span>
+                    </div>
+
+                    <button class="btn btn-sm btn-outline-secondary">
+                        <i class="ion-plus-round"></i>
+                        &nbsp;
+                        Follow @SelectedArticle.author.username
+                    </button>
+                    &nbsp;
+                    <button class="btn btn-sm btn-outline-primary">
+                        <i class="ion-heart"></i>
+                        &nbsp;
+                        Favorite Post <span class="counter">(@SelectedArticle.favoritesCount)</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="row">
+
+                <div class="col-xs-12 col-md-8 offset-md-2">
+
+                    @if (UserService.CurrentUser != null)
+                    {
+                        <form class="card comment-form">
+                            <div class="card-block">
+                                <textarea class="form-control" placeholder="Write a comment..." rows="3" @bind(CommentContent)></textarea>
+                            </div>
+                            <div class="card-footer">
+                                <img src="@UserService.CurrentUser.image" class="comment-author-img" />
+                                <button class="btn btn-sm btn-primary" @onclick(async () => await PostComment())>
+                                    Post Comment
+                                </button>
+                            </div>
+                        </form>
+                    }
+
+                    @if (Comments == null)
+                    {
+                        <p><em>Loading comments...</em></p>
+                    }
+                    else
+                    {
+                        @foreach (var comment in Comments.comments)
+                        {
+                            <div class="card">
+                                <div class="card-block">
+                                    <p class="card-text">@comment.body</p>
+                                </div>
+                                <div class="card-footer">
+                                    <a href="" class="comment-author">
+                                        <img src="@comment.author.image" class="comment-author-img" />
+                                    </a>
+                                    &nbsp;
+                                    <a href="" class="comment-author">@comment.author.username</a>
+                                    <span class="date-posted">@comment.updatedAt.ToLongDateString()</span>
+
+                                    @if (UserService.CurrentUser != null && UserService.CurrentUser.username == comment.author.username)
+                                    {
+                                        <span class="mod-options">
+                                            <i class="ion-trash-a" @onclick(async () => await DeleteCommentAsync(comment.id))></i>
+                                        </span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
+
+                </div>
+
+            </div>
+
+        </div>
+    }
+
+</div>
+
+
+
+@functions {
+    private Models.Article SelectedArticle { get; set; }
+
+    private Models.MultipleComment Comments { get; set; }
+
+    public string ArticleSlug { get; set; }
+
+    private string CommentContent { get; set; }
+
+    protected override async Task OnInitAsync()
+    {
+        Console.WriteLine($"Article page init {ArticleSlug}");
+
+        await LoadArticle();
+
+        Comments = await CommentService.ListAsync(ArticleSlug);
+    }
+
+    private async Task LoadArticle()
+    {
+        SelectedArticle = (await ArticleService.GetAsync(ArticleSlug))?.article;
+    }
+
+    private async Task PostComment()
+    {
+        if (string.IsNullOrWhiteSpace(CommentContent))
+        {
+            Microsoft.AspNetCore.Blazor.Browser.Interop.RegisteredFunction.Invoke<bool>("alert", "Please enter a valid comment");
+            return;
+        }
+
+        await CommentService.AddAsync(SelectedArticle.slug, body: CommentContent);
+
+        Comments = await CommentService.ListAsync(ArticleSlug);
+
+        StateHasChanged();
+    }
+
+    private async Task DeleteCommentAsync(int commentId)
+    {
+        await CommentService.DeleteAsync(SelectedArticle.slug, commentId);
+
+        Comments = await CommentService.ListAsync(ArticleSlug);
+
+        StateHasChanged();
+    }
+
+    private async Task DeleteAsync()
+    {
+        await ArticleService.DeleteAsync(SelectedArticle.slug);
+    }
+}

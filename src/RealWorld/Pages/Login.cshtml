@@ -1,0 +1,108 @@
+﻿@page "/login"
+@inject HttpClient Http
+@inject IUserService UserService
+@inject IUriHelper UriHelper
+
+
+<div class="auth-page">
+    <div class="container page">
+        <div class="row">
+
+            <div class="col-md-6 offset-md-3 col-xs-12">
+                <h1 class="text-xs-center">Sign up</h1>
+                <p class="text-xs-center">
+                    <a href="/register">Need an account?</a>
+                </p>
+
+                @if (HasApiErrors)
+                {
+                    <ul class="error-messages">
+                        @foreach (var errorMessage in Error.errors)
+                        {
+                            <li>@errorMessage.Key : @string.Join(",", errorMessage.Value)</li>
+                        }
+                    </ul>
+                }
+
+                @if (HasValidationErrors)
+                {
+                    <ul class="error-messages">
+                        @foreach (var errorMessage in LocalErrors)
+                        {
+                            <li>@errorMessage</li>
+                        }
+                    </ul>
+                }
+
+
+                <form>
+                    <fieldset class="form-group">
+                        <input @bind(Email) class="form-control form-control-lg" type="text" placeholder="Email">
+                    </fieldset>
+                    <fieldset class="form-group">
+                        <input @bind(Password) class="form-control form-control-lg" type="password" placeholder="Password">
+                    </fieldset>
+                    <button class="btn btn-lg btn-primary pull-xs-right" @onclick(async () => await SignIn())>
+                        Sign in
+                    </button>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+@functions {
+
+    public string Email { get; set; }
+    public string Password { get; set; }
+
+    public Models.Error Error { get; set; }
+    public bool HasApiErrors => Error != null;
+
+    public string[] LocalErrors { get; set; }
+    public bool HasValidationErrors => LocalErrors != null && LocalErrors.Length > 0;
+
+    protected override void OnInit()
+    {
+        base.OnInit();
+    }
+
+    private async Task SignIn()
+    {
+
+        LocalErrors = FindValidationErrors().ToArray();
+        if (HasValidationErrors)
+            return;
+
+        try
+        {
+            Console.WriteLine($"LoginAsync()...");
+            await UserService.LoginAsync(Email, Password);
+            Console.WriteLine($"LoginAsync() {UserService.CurrentUser != null}");
+            if (UserService.CurrentUser != null)
+                UriHelper.NavigateTo("/");
+        }
+        catch (Services.ApiServiceException ex)
+        {
+            Console.WriteLine($"RegisterAsync() {ex.Error != null} ");
+            Error = ex.Error;
+        }
+
+        this.StateHasChanged();
+    }
+
+    private IEnumerable<string>
+        FindValidationErrors()
+    {
+        if (string.IsNullOrWhiteSpace(Email) ||
+            Email.IndexOf('.') == -1 ||
+            Email.Count(_ => _ == '@') != 1)
+            yield return "Please enter a valid email address";
+        if (string.IsNullOrWhiteSpace(Password) ||
+            Password.Trim().Length < 8)
+            yield return "Please enter a password of at least 8 characters";
+    }
+
+
+}

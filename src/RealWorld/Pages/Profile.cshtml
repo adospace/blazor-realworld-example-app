@@ -1,0 +1,139 @@
+﻿@page "/profile/{Username}"
+@inject HttpClient Http
+@inject IUserService UserService
+@inject IArticleService ArticleService
+@inject IProfileService ProfileService
+
+<div class="profile-page">
+
+    @if (SelectedProfile == null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+
+        <div class="user-info">
+            <div class="container">
+                <div class="row">
+
+                    <div class="col-xs-12 col-md-10 offset-md-1">
+                        <img src="@SelectedProfile.image" class="user-img" />
+                        <h4>@SelectedProfile.username</h4>
+                        <p>
+                            @SelectedProfile.bio
+                        </p>
+                        <button class="btn btn-sm btn-outline-secondary action-btn">
+                            <i class="ion-plus-round"></i>
+                            &nbsp;
+                            Follow @SelectedProfile.username
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+
+                <div class="col-xs-12 col-md-10 offset-md-1">
+                    <div class="articles-toggle">
+                        <ul class="nav nav-pills outline-active">
+                            <li class="nav-item">
+                                <a class="nav-link@((!IsShowingFavoritedArticles ? " active": null))" href="" @onclick(async () => await ShowMyArticles())>My Articles</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link@((IsShowingFavoritedArticles ? " active": null))" href="" @onclick(async () => await ShowFavoritedArticles())>Favorited Articles</a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    @if (Articles == null)
+                    {
+                        <p><em>Loading articles...</em></p>
+                    }
+                    else
+                    {
+                        @foreach (var article in Articles.articles)
+                        {
+                            <div class="article-preview">
+                                <div class="article-meta">
+                                    <a href="/profile/@article.author.username"><img src="@article.author.image" /></a>
+                                    <div class="info">
+                                        <a href="" class="author">@article.author.username</a>
+                                        <span class="date">@article.updatedAt.ToLongDateString()</span>
+                                    </div>
+                                    <button class="btn btn-outline-primary btn-sm pull-xs-right">
+                                        <i class="ion-heart"></i> @article.favoritesCount
+                                    </button>
+                                </div>
+                                <a href="/article/@article.slug" class="preview-link">
+                                    <h1>@article.title</h1>
+                                    <p>@article.description</p>
+                                    <span>Read more...</span>
+
+                                    @if (article.tagList != null)
+                                    {
+                                        <ul class="tag-list">
+                                            @foreach (var tag in article.tagList)
+                                            {
+                                                <li class="tag-default tag-pill tag-outline ng-binding ng-scope">
+                                                    @tag
+                                                </li>
+                                            }
+                                        </ul>
+                                    }
+                                </a>
+                            </div>
+                        }
+                    }
+
+
+                </div>
+
+            </div>
+        </div>
+
+    }
+</div>
+
+@functions {
+
+    private Models.Profile SelectedProfile { get; set; }
+
+    public string Username { get; set; }
+
+    private MultipleArticle Articles { get; set; }
+
+    private bool IsShowingFavoritedArticles { get; set; }
+
+    protected override async Task OnInitAsync()
+    {
+        Console.WriteLine("Profile page init");
+
+        await LoadProfile();
+        await ShowMyArticles();
+    }
+
+    private async Task LoadProfile()
+    {
+        SelectedProfile = (await ProfileService.GetAsync(Username)).profile;
+    }
+
+    private async Task ShowMyArticles()
+    {
+        IsShowingFavoritedArticles = false;
+        Articles = null;
+        Articles = await ArticleService.ListAsync(author: Username);
+        StateHasChanged();
+    }
+
+    private async Task ShowFavoritedArticles()
+    {
+        IsShowingFavoritedArticles = true;
+        Articles = null;
+        Articles = await ArticleService.ListAsync(favorited: Username);
+        StateHasChanged();
+    }
+}

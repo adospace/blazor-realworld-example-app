@@ -1,0 +1,145 @@
+﻿@page "/"
+@inject HttpClient Http
+@inject IUserService UserService
+@inject IArticleService ArticleService
+@inject ITagService TagService
+
+<div class="home-page">
+
+    <div class="banner">
+        <div class="container">
+            <h1 class="logo-font">conduit</h1>
+            <p>A place to share your knowledge.</p>
+        </div>
+    </div>
+
+    <div class="container page">
+        <div class="row">
+
+            <div class="col-md-9">
+                <div class="feed-toggle">
+                    <ul class="nav nav-pills outline-active">
+                        @if (UserService.CurrentUser != null)
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link@((IsUserFeedList ? " active": null))" href="" @onclick(async () => await ShowUserFeed())>Your Feed</a>
+                            </li>
+                        }
+                        <li class="nav-item">
+                            <a class="nav-link@((!IsUserFeedList && !IsTagSelected ? " active": null))" href="" @onclick(async () => await ShowGlobalFeed())>Global Feed</a>
+                        </li>
+                        @if (IsTagSelected)
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link active" href="">#@SelectedTag</a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+
+                @if (Articles == null)
+                {
+                    <p><em>Loading articles...</em></p>
+                }
+                else
+                {
+                    @foreach (var article in Articles.articles)
+                    {
+                        <div class="article-preview">
+                            <div class="article-meta">
+                                <a href="/profile/@article.author.username"><img src="@article.author.image" /></a>
+                                <div class="info">
+                                    <a href="" class="author">@article.author.username</a>
+                                    <span class="date">@article.updatedAt.ToLongDateString()</span>
+                                </div>
+                                <button class="btn btn-outline-primary btn-sm pull-xs-right">
+                                    <i class="ion-heart"></i> @article.favoritesCount
+                                </button>
+                            </div>
+                            <a href="/article/@article.slug" class="preview-link">
+                                <h1>@article.title</h1>
+                                <p>@article.description</p>
+                                <span>Read more...</span>
+
+                                @if (article.tagList != null)
+                                {
+                                    <ul class="tag-list">
+                                        @foreach (var tag in article.tagList)
+                                        {
+                                            <li class="tag-default tag-pill tag-outline ng-binding ng-scope">
+                                                @tag
+                                            </li>
+                                        }
+                                    </ul>
+                                }
+                            </a>
+                        </div>
+                    }
+                }
+
+            </div>
+
+            <div class="col-md-3">
+                <div class="sidebar">
+                    <p>Popular Tags</p>
+
+                    <div class="tag-list">
+                        @foreach (var tag in Tags)
+                        {
+                            <a href="" class="tag-pill tag-default" @onclick(async () => await ShowGlobalFeed(tag))>@tag</a>
+                        }
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+
+@functions {
+
+    private bool IsUserFeedList { get; set; }
+
+    private string SelectedTag { get; set; }
+
+    private bool IsTagSelected => SelectedTag != null;
+
+    private MultipleArticle Articles { get; set; }
+
+    private string[] Tags { get; set; } = new string[] { };
+
+    protected override async Task OnInitAsync()
+    {
+        Console.WriteLine("Index page init");
+
+        Tags = await TagService.ListAsync();
+
+        await ShowGlobalFeed();
+    }
+
+
+    private async Task ShowGlobalFeed(string filterByTag = null)
+    {
+        IsUserFeedList = false;
+        Articles = null;
+        SelectedTag = filterByTag;
+
+        Articles = await ArticleService.ListAsync(tag: filterByTag);
+
+        StateHasChanged();
+    }
+
+    private async Task ShowUserFeed()
+    {
+        IsUserFeedList = true;
+        Articles = null;
+        SelectedTag = null;
+
+        Articles = await ArticleService.FeedAsync();
+
+        StateHasChanged();
+    }
+
+}

@@ -1,0 +1,56 @@
+﻿@inject IUserService UserService
+
+<nav class="navbar navbar-light">
+    <div class="container">
+        <a class="navbar-brand" href="index.html">conduit</a>
+        <ul class="nav navbar-nav pull-xs-right">
+            <li class="nav-item">
+                <!-- Add "active" class when you're on that page" -->
+                <NavLink class="nav-link" href="/">Home</NavLink>
+            </li>
+
+            @if (IsLoggedIn)
+            {
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="/new">
+                        <i class="ion-compose"></i>&nbsp;New Post
+                    </NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="/settings">
+                        <i class="ion-gear-a"></i>&nbsp;Settings
+                    </NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="/profile">
+                        <i class="ion-gear-a"></i>&nbsp;@UserService.CurrentUser.username
+                    </NavLink>
+                </li>
+            }
+            else
+            {
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="/login">Sign in</NavLink>
+                </li>
+
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="/register">Sign up</NavLink>
+                </li>
+            }
+
+        </ul>
+    </div>
+</nav>
+
+@functions {
+
+    private bool IsLoggedIn => UserService.CurrentUser != null;
+
+    protected override async Task OnInitAsync()
+    {
+        Console.WriteLine("NavMenu init");
+        if (UserService.CurrentUser != null)
+            await UserService.GetCurrentAsync();
+    }
+
+}
